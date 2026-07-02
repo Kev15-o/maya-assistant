@@ -26,6 +26,7 @@ running at once would fight over the microphone.
 """
 
 import threading
+import time
 from pathlib import Path
 
 import streamlit as st
@@ -53,6 +54,25 @@ st.markdown(
 
 _backend_lock = threading.Lock()
 _backend_started = False
+_api_ready = False
+
+
+def _wait_for_api(port, timeout=10):
+    """Wait for the state API to be ready before using it."""
+    import socket
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex(("127.0.0.1", port))
+            sock.close()
+            if result == 0:
+                return True
+        except Exception:
+            pass
+        time.sleep(0.2)
+    return False
 
 
 def _ensure_backend_started():
@@ -63,15 +83,31 @@ def _ensure_backend_started():
     neither should spin up a second microphone thread or a second copy of
     the API server on an already-bound port.
     """
-    global _backend_started
+    global _backend_started, _api_ready
     with _backend_lock:
         if _backend_started:
-            return
-        threading.Thread(target=assistant.run_assistant, daemon=True).start()
-        threading.Thread(
-            target=start_state_api, kwargs={"port": API_PORT}, daemon=True
-        ).start()
-        _backend_started = True
+            return _api_ready
+        try:
+            # Start the voice assistant on a background thread
+            assistant_thread = threading.Thread(
+                target=assistant.run_assistant, daemon=True
+            )
+            assistant_thread.start()
+
+            # Start the state API server on a background thread
+            api_thread = threading.Thread(
+                target=start_state_api, kwargs={"port": API_PORT}, daemon=True
+            )
+            api_thread.start()
+
+            # Wait for API to be ready
+            _api_ready = _wait_for_api(API_PORT)
+            _backend_started = True
+            return _api_ready
+        except Exception as e:
+            print(f"Error starting backend: {e}")
+            _backend_started = False
+            return False
 
 
 def _load_page_html():
@@ -84,6 +120,13 @@ def _load_page_html():
 
 
 _ensure_backend_started()
+
+# Show status while initializing
+if not _api_ready:
+    st.info("🔄 Initializing M.A.Y.A assistant... Please wait.")
+    with st.spinner("Starting backend services..."):
+        time.sleep(2)  # Give the API a moment to fully initialize
+        _ensure_backend_started()
 
 if hasattr(st, "iframe"):
     # Streamlit >= 1.56: the current API.

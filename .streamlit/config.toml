@@ -1,0 +1,33 @@
+[theme]
+primaryColor = "#1f77b4"
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#262730"
+textColor = "#fafafa"
+font = "sans serif"
+
+[client]
+# Don't show the menu on the right side
+showSidebarNavigation = true
+
+[server]
+# Run in headless mode (required for deployments)
+headless = true
+
+# Enable CORS for local API access
+enableCORS = true
+
+# Allow requests from other origins
+enableXsrfProtection = false
+
+# Port configuration
+port = 8501
+
+# Session settings
+maxUploadSize = 200
+
+[logger]
+# Set logging level
+level = "warning"
+
+[client.showErrorDetails]
+showErrorDetails = false

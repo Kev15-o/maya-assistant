@@ -1,0 +1,10 @@
+# Streamlit cache
+__pycache__/
+.streamlit/secrets.toml
+.streamlit/*.yaml
+.streamlit/*.yml
+
+# Credentials and sensitive data
+.env
+.env.local
+secrets.toml
