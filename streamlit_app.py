@@ -100,7 +100,8 @@ def _ensure_backend_started():
             )
             api_thread.start()
 
-            # Wait for API to be ready
+            # Wait for API to be ready. If another instance is already serving
+            # the state endpoint, this still succeeds and we avoid duplicate startup.
             _api_ready = _wait_for_api(API_PORT)
             _backend_started = True
             return _api_ready

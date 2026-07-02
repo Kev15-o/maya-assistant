@@ -39,4 +39,9 @@ def start_state_api(port=5051):
     app = create_api_app()
     # debug=False / use_reloader=False: this runs on a thread, not the main
     # process, and the reloader would try to spawn a second process.
-    app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
+    try:
+        app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
+    except OSError as exc:
+        if "Address already in use" in str(exc):
+            return
+        raise
