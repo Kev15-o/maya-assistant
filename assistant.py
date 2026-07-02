@@ -13,12 +13,32 @@ import threading
 import time
 import webbrowser
 
-import edge_tts
-import pygame
-import pyjokes
+try:
+    import edge_tts
+except Exception:
+    edge_tts = None
+
+try:
+    import pygame
+except Exception:
+    pygame = None
+
+try:
+    import pyjokes
+except Exception:
+    pyjokes = None
+
 import requests
-import speech_recognition as sr
-import wikipedia
+
+try:
+    import speech_recognition as sr
+except Exception:
+    sr = None
+
+try:
+    import wikipedia
+except Exception:
+    wikipedia = None
 
 from state import state
 
@@ -167,6 +187,19 @@ RESPONSE_BANK = {
 }
 
 
+def _has_voice_runtime():
+    return edge_tts is not None and pygame is not None
+
+
+def _safe_pygame_quit():
+    if pygame is None:
+        return
+    try:
+        pygame.quit()
+    except Exception:
+        pass
+
+
 def say_variant(key, *extra_parts):
     """Speak a varied canned response, optionally followed by details."""
     parts = [random.choice(RESPONSE_BANK[key]), *[part for part in extra_parts if part]]
@@ -295,6 +328,17 @@ def speak(audio):
     ):
         active_speech_thread.join()
 
+    state.update(
+        mode="speaking",
+        sys_text="VOICE OUTPUT ACTIVE",
+        message=audio,
+        last_reply=audio,
+    )
+
+    if not _has_voice_runtime():
+        print(f"maya: {audio}")
+        return None
+
     def run_speech():
         async def amain():
             try:
@@ -335,13 +379,6 @@ def speak(audio):
         asyncio.set_event_loop(new_loop)
         new_loop.run_until_complete(amain())
         new_loop.close()
-
-    state.update(
-        mode="speaking",
-        sys_text="VOICE OUTPUT ACTIVE",
-        message=audio,
-        last_reply=audio,
-    )
 
     speech_thread = threading.Thread(target=run_speech, daemon=True)
     speech_thread.start()
@@ -399,30 +436,42 @@ def wishMe():
 
 
 def listen_for_wake_word():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        print("Sleeping...")
-        try:
-            audio = r.listen(source, timeout=2, phrase_time_limit=2)
-            query = r.recognize_google(audio, language="en-in").lower()
-            return "wake up" in query or "maya" in query
-        except Exception:
-            return False
+    if sr is None:
+        return False
+
+    try:
+        r = sr.Recognizer()
+        with sr.Microphone() as source:
+            print("Sleeping...")
+            try:
+                audio = r.listen(source, timeout=2, phrase_time_limit=2)
+                query = r.recognize_google(audio, language="en-in").lower()
+                return "wake up" in query or "maya" in query
+            except Exception:
+                return False
+    except Exception:
+        return False
 
 
 def takeCommand():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        print("Listening...")
-        r.pause_threshold = 0.8
-        r.dynamic_energy_threshold = True
-        try:
-            audio = r.listen(source, timeout=9, phrase_time_limit=10)
-            query = r.recognize_google(audio, language="en-in")
-            print(f"User: {query}")
-            return clean_query(query)
-        except Exception:
-            return "none"
+    if sr is None:
+        return "none"
+
+    try:
+        r = sr.Recognizer()
+        with sr.Microphone() as source:
+            print("Listening...")
+            r.pause_threshold = 0.8
+            r.dynamic_energy_threshold = True
+            try:
+                audio = r.listen(source, timeout=9, phrase_time_limit=10)
+                query = r.recognize_google(audio, language="en-in")
+                print(f"User: {query}")
+                return clean_query(query)
+            except Exception:
+                return "none"
+    except Exception:
+        return "none"
 
 
 def tell_time():
@@ -469,6 +518,10 @@ def search_wikipedia(query):
         speak("Tell me what you want me to search.")
         return
 
+    if wikipedia is None:
+        speak("I can search the web once the lookup library is available.")
+        return
+
     say_variant("thinking")
     try:
         wikipedia.set_lang("en")
@@ -482,6 +535,10 @@ def search_wikipedia(query):
 
 
 def tell_joke():
+    if pyjokes is None:
+        speak("I can tell a joke once the joke library is available.")
+        return
+
     intro = random.choice(["Here comes one.", "Tiny comedy packet arriving.", "Brace yourself."])
     speak(f"{intro} {pyjokes.get_joke()}")
 
@@ -686,5 +743,5 @@ def run_assistant():
     if active_speech_thread:
         active_speech_thread.join()
 
-    pygame.quit()
+    _safe_pygame_quit()
     state.update(mode="standby", sys_text="SESSION ENDED", message="Goodbye, boss.")
