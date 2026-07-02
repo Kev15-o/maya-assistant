@@ -1,0 +1,2 @@
+portaudio19-dev
+libsdl2-dev
