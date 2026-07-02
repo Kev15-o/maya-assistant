@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M.A.Y.A — Companion Display</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#03050b;
+    --void-2:#060c18;
+    --panel:rgba(9,20,38,.48);
+    --edge:rgba(90,210,255,.22);
+    --edge-strong:rgba(140,225,255,.5);
+    --core:#39e9ff;
+    --core-soft:#8fe9ff;
+    --violet:#8b6bff;
+    --violet-soft:#b9a4ff;
+    --deep:#061524;
+    --text-bright:#ecf6ff;
+    --text-dim:#5d84ac;
+    --text-faint:#31496a;
+    --live:#39e9ff;
+    --preview:#ffb454;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; height:100%;
+    background:var(--void);
+    color:var(--text-bright);
+    font-family:'Rajdhani',sans-serif;
+    overflow-x:hidden;
+  }
+  body{
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:28px 16px;
+  }
+
+  /* ---------- atmosphere ---------- */
+  .bg-grid{
+    position:fixed; inset:0; z-index:0;
+    background-image:
+      linear-gradient(rgba(80,150,255,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(80,150,255,.055) 1px, transparent 1px);
+    background-size:44px 44px;
+    mask-image:radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 78%);
+  }
+  .bg-glow{
+    position:fixed; inset:0; z-index:0;
+    background:
+      radial-gradient(ellipse 55% 42% at 50% 28%, rgba(57,233,255,.14), transparent 70%),
+      radial-gradient(ellipse 60% 46% at 78% 78%, rgba(139,107,255,.12), transparent 70%);
+  }
+  .bg-particle{
+    position:fixed; z-index:0; border-radius:50%;
+    background:var(--core-soft); opacity:.5;
+    box-shadow:0 0 6px var(--core-soft);
+    animation:drift 9s ease-in-out infinite;
+  }
+  @keyframes drift{ 0%,100%{ transform:translateY(0); opacity:.15;} 50%{ transform:translateY(-18px); opacity:.6;} }
+
+  /* ---------- boot overlay ---------- */
+  #boot{
+    position:fixed; inset:0; z-index:50; background:var(--void);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    letter-spacing:.12em; transition:opacity .6s ease;
+  }
+  #boot .boot-mark{
+    font-family:'Orbitron',sans-serif; font-size:15px; font-weight:700; letter-spacing:.5em;
+    background:linear-gradient(90deg,var(--core),var(--violet-soft));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    margin-bottom:22px; filter:drop-shadow(0 0 10px rgba(57,233,255,.4));
+  }
+  #boot-log{ font-size:12px; color:var(--text-dim); min-height:120px; text-align:left; width:280px; }
+  #boot-log div{ opacity:0; transform:translateY(4px); animation:bootline .35s forwards; margin:3px 0; }
+  #boot-log span{color:var(--core-soft);}
+  @keyframes bootline{ to{opacity:1; transform:none;} }
+
+  /* ---------- app shell ---------- */
+  .app{
+    position:relative; z-index:1; width:100%; max-width:980px;
+    opacity:0; transform:scale(.98); transition:opacity .7s ease, transform .7s ease;
+  }
+  .app.ready{ opacity:1; transform:none; }
+
+  .top-bar{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    padding-bottom:18px; margin-bottom:8px; border-bottom:1px solid var(--edge);
+  }
+  .brand-mark{
+    font-family:'Orbitron',sans-serif; font-weight:900; font-size:26px; letter-spacing:.32em;
+    background:linear-gradient(90deg,var(--text-bright),var(--core-soft));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 14px rgba(57,233,255,.3));
+  }
+  .brand-sub{ display:block; margin-top:6px; font-size:11px; letter-spacing:.2em; color:var(--text-faint); text-transform:uppercase; }
+  .sys-status{ display:flex; align-items:center; gap:10px; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--text-dim); padding-top:4px; }
+  .status-dot{ width:8px; height:8px; border-radius:50%; background:var(--core); box-shadow:0 0 10px var(--core); animation:pulse-dot 1.6s ease-in-out infinite; }
+  @keyframes pulse-dot{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .conn-badge{
+    font-family:'Orbitron',sans-serif; font-size:9.5px; letter-spacing:.16em; padding:3px 8px;
+    border-radius:2px; border:1px solid currentColor; text-transform:uppercase;
+  }
+  .conn-badge.live{ color:var(--live); }
+  .conn-badge.preview{ color:var(--preview); }
+
+  /* ---------- stage row ---------- */
+  .stage-row{ display:grid; grid-template-columns:180px 1fr 180px; align-items:center; gap:12px; margin:20px 0 10px; }
+  @media (max-width:760px){ .stage-row{ grid-template-columns:1fr; } .panel{ order:2; } .stage{ order:1; } }
+
+  .panel{ background:var(--panel); border:1px solid var(--edge); border-radius:3px; padding:14px 16px; position:relative; backdrop-filter:blur(2px); }
+  .panel::before{ content:""; position:absolute; top:0; left:0; width:14px; height:2px; background:var(--core-soft); }
+  .panel-label{ font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
+  .panel-value{ font-family:'Orbitron',sans-serif; font-size:22px; font-weight:700; color:var(--text-bright); letter-spacing:.05em; }
+  .panel-sub{ font-size:12px; color:var(--text-dim); margin-top:4px; letter-spacing:.05em; }
+
+  /* ---------- stage ---------- */
+  .stage{ position:relative; width:100%; max-width:400px; aspect-ratio:1/1; margin:0 auto; display:flex; align-items:center; justify-content:center; }
+  .corner{ position:absolute; width:24px; height:24px; border-color:var(--core-soft); opacity:.6; }
+  .corner-tl{ top:0; left:0; border-top:2px solid; border-left:2px solid; }
+  .corner-tr{ top:0; right:0; border-top:2px solid; border-right:2px solid; }
+  .corner-bl{ bottom:0; left:0; border-bottom:2px solid; border-left:2px solid; }
+  .corner-br{ bottom:0; right:0; border-bottom:2px solid; border-right:2px solid; }
+
+  .orb-wrap{ position:relative; width:82%; animation:breathe 5.5s ease-in-out infinite; }
+  @keyframes breathe{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.015);} }
+
+  .rings{ position:absolute; inset:0; width:118%; height:118%; left:-9%; top:-9%; pointer-events:none; }
+  .ring{ fill:none; transform-origin:250px 250px; }
+  .ring-a{ stroke:rgba(90,210,255,.22); stroke-width:1; stroke-dasharray:2 7; animation:spin 44s linear infinite; }
+  .ring-b{ stroke:url(#ringGrad); stroke-width:1.1; stroke-dasharray:50 10; opacity:.55; animation:spin-rev 24s linear infinite; }
+  .ring-c{ stroke:rgba(57,233,255,.5); stroke-width:1.3; stroke-dasharray:3 11; animation:spin 12s linear infinite; }
+  .orbit-dot{ fill:var(--core-soft); filter:drop-shadow(0 0 4px var(--core-soft)); }
+  .tick{ stroke:rgba(90,210,255,.3); stroke-width:1; }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+  @keyframes spin-rev{ to{ transform:rotate(-360deg);} }
+  .app[data-state="listening"] .ring-c{ animation-duration:5s; stroke:var(--core-soft); }
+  .app[data-state="speaking"] .ring-c{ animation-duration:2.4s; stroke:var(--violet-soft); }
+  .app[data-state="wake"] .ring-b{ animation-duration:9s; }
+
+  .face{ width:100%; height:auto; display:block; overflow:visible; }
+  .orb-body{ transition:stroke .4s ease, filter .4s ease; filter:drop-shadow(0 0 26px rgba(57,233,255,.18)); }
+
+  /* eyes */
+  .eye{ transform-box:fill-box; transform-origin:center; }
+  .eye-glow{ fill:var(--core); opacity:.16; filter:blur(2px); }
+  .eye-core{ fill:var(--core); filter:url(#eyeGlow); }
+  .eye-spark{ fill:#fff; opacity:.85; }
+  .app[data-state="standby"] .eye{ animation:eye-idle 3.4s ease-in-out infinite; }
+  .app[data-state="wake"] .eye{ animation:eye-bright 2.2s ease-in-out infinite; }
+  .app[data-state="listening"] .eye{ animation:eye-focus 1s ease-in-out infinite; }
+  .app[data-state="speaking"] .eye-core{ animation:eye-flicker .45s ease-in-out infinite; }
+  .app[data-state="speaking"] .eye-core{ fill:var(--violet-soft); }
+  @keyframes eye-idle{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(.94);} }
+  @keyframes eye-bright{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.06);} }
+  @keyframes eye-focus{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(.9);} }
+  @keyframes eye-flicker{ 0%,100%{ opacity:1;} 50%{ opacity:.7;} }
+  .eye.blink{ animation:blink .32s ease !important; }
+  @keyframes blink{ 0%,100%{ transform:scaleY(1);} 50%{ transform:scaleY(.08);} }
+
+  /* brows */
+  .brow{ fill:none; stroke:var(--core-soft); stroke-width:3.2; stroke-linecap:round; opacity:.75; transition:transform .5s ease, opacity .4s ease; transform-box:fill-box; transform-origin:center; }
+  .app[data-state="standby"] .brow{ transform:translateY(3px); opacity:.5; }
+  .app[data-state="wake"] .brow{ transform:translateY(-4px); opacity:.9; }
+  .app[data-state="listening"] .brow-l{ transform:translateY(-2px) rotate(-3deg); }
+  .app[data-state="listening"] .brow-r{ transform:translateY(-2px) rotate(3deg); }
+  .app[data-state="speaking"] .brow{ transform:translateY(-1px); }
+
+  /* mouth */
+  .mouth{ display:none; }
+  .app[data-state="standby"] .mouth-standby{ display:block; }
+  .app[data-state="wake"] .mouth-wake{ display:block; }
+  .app[data-state="listening"] .mouth-listening{ display:block; }
+  .app[data-state="speaking"] .mouth-speaking{ display:block; }
+  .mouth-standby line{ stroke:var(--core-soft); stroke-width:3; stroke-linecap:round; opacity:.5; }
+  .mouth-wake path{ stroke:var(--core-soft); stroke-width:3; fill:none; stroke-linecap:round; filter:url(#eyeGlow); }
+  .mouth-listening circle{ fill:var(--core-soft); animation:dot-pulse 1.1s ease-in-out infinite; }
+  .mouth-listening circle:nth-child(2){ animation-delay:.15s; }
+  .mouth-listening circle:nth-child(3){ animation-delay:.3s; }
+  @keyframes dot-pulse{ 0%,100%{ opacity:.3; transform:translateY(0);} 50%{ opacity:1; transform:translateY(-3px);} }
+  .mouth-speaking rect{ fill:var(--violet-soft); transform-box:fill-box; transform-origin:bottom; animation:eq .55s ease-in-out infinite; filter:url(#eyeGlow); }
+  .mouth-speaking rect:nth-child(1){ animation-delay:0s; }
+  .mouth-speaking rect:nth-child(2){ animation-delay:.08s; }
+  .mouth-speaking rect:nth-child(3){ animation-delay:.16s; }
+  .mouth-speaking rect:nth-child(4){ animation-delay:.24s; }
+  .mouth-speaking rect:nth-child(5){ animation-delay:.12s; }
+  .mouth-speaking rect:nth-child(6){ animation-delay:.04s; }
+  @keyframes eq{ 0%,100%{ transform:scaleY(.4);} 50%{ transform:scaleY(1);} }
+
+  .cheek{ fill:var(--violet-soft); opacity:0; transition:opacity .5s ease; filter:blur(3px); }
+  .app[data-state="wake"] .cheek{ opacity:.28; }
+  .app[data-state="speaking"] .cheek{ opacity:.2; }
+
+  .scanline{
+    position:absolute; left:20%; right:20%; height:2px; top:12%;
+    background:linear-gradient(90deg, transparent, var(--core-soft), transparent);
+    opacity:.6; animation:scan 3.4s ease-in-out infinite;
+  }
+  @keyframes scan{ 0%{ top:14%; opacity:0;} 10%{opacity:.7;} 50%{ top:80%; opacity:.4;} 90%{opacity:.7;} 100%{ top:14%; opacity:0;} }
+
+  /* ---------- console ---------- */
+  .console{ margin-top:8px; padding-top:16px; border-top:1px solid var(--edge); }
+  .state-text{
+    text-align:center; font-family:'Orbitron',sans-serif; font-size:13px; letter-spacing:.12em;
+    color:var(--core-soft); text-transform:uppercase; min-height:18px; margin-bottom:8px;
+    text-shadow:0 0 10px rgba(57,233,255,.3);
+  }
+  .transcript{
+    text-align:center; font-size:13px; color:var(--text-dim); min-height:18px; margin-bottom:16px;
+    letter-spacing:.02em;
+  }
+  .transcript .you{ color:var(--core-soft); }
+  .transcript .arrow{ color:var(--text-faint); margin:0 6px; }
+  .transcript .reply{ color:var(--violet-soft); }
+
+  .waveform{ display:flex; align-items:flex-end; justify-content:center; gap:3px; height:44px; margin-bottom:20px; }
+  .bar{ width:4px; height:6px; background:var(--core); border-radius:1px; box-shadow:0 0 6px rgba(57,233,255,.4); }
+  .app[data-state="standby"] .bar{ animation:bar-idle 2.4s ease-in-out infinite; background:#1c3a58; }
+  .app[data-state="listening"] .bar{ animation:bar-listen .9s ease-in-out infinite; background:var(--core-soft); }
+  .app[data-state="speaking"] .bar{ animation:bar-speak .6s ease-in-out infinite; background:var(--violet-soft); }
+  .app[data-state="wake"] .bar{ animation:bar-idle 1.6s ease-in-out infinite; background:var(--core); }
+  @keyframes bar-idle{ 0%,100%{ height:4px;} 50%{ height:10px;} }
+  @keyframes bar-listen{ 0%,100%{ height:6px;} 50%{ height:26px;} }
+  @keyframes bar-speak{ 0%{height:6px;} 25%{height:36px;} 50%{height:12px;} 75%{height:42px;} 100%{height:6px;} }
+
+  .controls{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding-bottom:4px; transition:opacity .3s ease; }
+  .controls.hidden{ display:none; }
+  .controls button{
+    font-family:'Rajdhani',sans-serif; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+    font-size:12px; color:var(--text-dim); background:var(--panel); border:1px solid var(--edge);
+    padding:9px 18px; cursor:pointer; border-radius:3px; transition:color .2s ease, border-color .2s ease, box-shadow .2s ease;
+  }
+  .controls button:hover{ color:var(--text-bright); border-color:var(--edge-strong); box-shadow:0 0 12px rgba(57,233,255,.15); }
+  .controls button.active{ color:var(--void); background:linear-gradient(90deg,var(--core-soft),var(--violet-soft)); border-color:transparent; }
+
+  .footnote{ text-align:center; margin-top:18px; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--text-faint); }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div id="boot">
+  <div class="boot-mark">M · A · Y · A</div>
+  <div id="boot-log"></div>
+</div>
+
+<div class="app" id="app" data-state="standby">
+
+  <header class="top-bar">
+    <div>
+      <span class="brand-mark">M.A.Y.A</span>
+      <span class="brand-sub">companion display · live-linked to main.py</span>
+    </div>
+    <div class="sys-status">
+      <span class="conn-badge preview" id="conn-badge">PREVIEW</span>
+      <span class="status-dot"></span>
+      <span id="sys-text">SYSTEM STANDBY</span>
+    </div>
+  </header>
+
+  <div class="stage-row">
+    <div class="panel">
+      <div class="panel-label">Chronometer</div>
+      <div class="panel-value" id="clock-time">--:--:--</div>
+      <div class="panel-sub" id="clock-date">-- --- ----</div>
+    </div>
+
+    <div class="stage">
+      <div class="corner corner-tl"></div>
+      <div class="corner corner-tr"></div>
+      <div class="corner corner-bl"></div>
+      <div class="corner corner-br"></div>
+
+      <div class="orb-wrap">
+        <svg class="rings" viewBox="0 0 500 500">
+          <defs>
+            <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#39e9ff"/>
+              <stop offset="100%" stop-color="#8b6bff"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring ring-a" cx="250" cy="250" r="238"></circle>
+          <circle class="ring ring-b" cx="250" cy="250" r="208"></circle>
+          <circle class="ring ring-c" cx="250" cy="250" r="182"></circle>
+          <g class="tick">
+            <line x1="250" y1="6" x2="250" y2="24"></line>
+            <line x1="250" y1="476" x2="250" y2="494"></line>
+            <line x1="6" y1="250" x2="24" y2="250"></line>
+            <line x1="476" y1="250" x2="494" y2="250"></line>
+          </g>
+          <g class="orbit-particles" style="transform-origin:250px 250px; animation:spin 30s linear infinite;">
+            <circle class="orbit-dot" cx="250" cy="68" r="3"></circle>
+            <circle class="orbit-dot" cx="410" cy="330" r="2.2"></circle>
+            <circle class="orbit-dot" cx="98" cy="340" r="2.6"></circle>
+          </g>
+        </svg>
+
+        <svg class="face" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="eyeGlow" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="4" result="b"></feGaussianBlur>
+              <feMerge><feMergeNode in="b"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge>
+            </filter>
+          </defs>
+
+          <circle class="orb-body" cx="200" cy="200" r="150" fill="url(#orbGrad)" stroke="url(#ringGrad)" stroke-width="1.6"></circle>
+          <radialGradient id="orbGrad" cx="50%" cy="40%" r="65%">
+            <stop offset="0%" stop-color="#0d2842"></stop>
+            <stop offset="55%" stop-color="#081726"></stop>
+            <stop offset="100%" stop-color="#03060d"></stop>
+          </radialGradient>
+
+          <ellipse class="cheek" cx="128" cy="216" rx="16" ry="9"></ellipse>
+          <ellipse class="cheek" cx="272" cy="216" rx="16" ry="9"></ellipse>
+
+          <path class="brow brow-l" d="M116,148 Q140,134 166,146"></path>
+          <path class="brow brow-r" d="M234,146 Q260,134 284,148"></path>
+
+          <g class="eye eye-l">
+            <circle class="eye-glow" cx="141" cy="180" r="30"></circle>
+            <circle class="eye-core" cx="141" cy="180" r="16"></circle>
+            <circle class="eye-spark" cx="134" cy="173" r="3.6"></circle>
+          </g>
+          <g class="eye eye-r">
+            <circle class="eye-glow" cx="259" cy="180" r="30"></circle>
+            <circle class="eye-core" cx="259" cy="180" r="16"></circle>
+            <circle class="eye-spark" cx="252" cy="173" r="3.6"></circle>
+          </g>
+
+          <g class="mouth mouth-standby">
+            <line x1="178" y1="250" x2="222" y2="250"></line>
+          </g>
+          <g class="mouth mouth-wake">
+            <path d="M172,244 Q200,268 228,244"></path>
+          </g>
+          <g class="mouth mouth-listening">
+            <circle cx="188" cy="250" r="4"></circle>
+            <circle cx="200" cy="250" r="4"></circle>
+            <circle cx="212" cy="250" r="4"></circle>
+          </g>
+          <g class="mouth mouth-speaking">
+            <rect x="178" y="238" width="4" height="18" rx="2"></rect>
+            <rect x="187" y="230" width="4" height="30" rx="2"></rect>
+            <rect x="196" y="236" width="4" height="22" rx="2"></rect>
+            <rect x="205" y="226" width="4" height="38" rx="2"></rect>
+            <rect x="214" y="236" width="4" height="22" rx="2"></rect>
+            <rect x="223" y="240" width="4" height="14" rx="2"></rect>
+          </g>
+        </svg>
+      </div>
+
+      <div class="scanline"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Local Sensor · Kochi</div>
+      <div class="panel-value" id="weather-temp">--°</div>
+      <div class="panel-sub" id="weather-cond">Connecting…</div>
+    </div>
+  </div>
+
+  <section class="console">
+    <div class="waveform" id="waveform"></div>
+    <div class="state-text" id="state-text">Standby. Say "wake up" to resume.</div>
+    <div class="transcript" id="transcript"></div>
+    <div class="controls" id="controls">
+      <button data-set="standby" class="active">Standby</button>
+      <button data-set="wake">Wake</button>
+      <button data-set="listening">Listening</button>
+      <button data-set="speaking">Speaking</button>
+    </div>
+  </section>
+
+  <div class="footnote" id="footnote">Preview mode — start <code>python server.py</code> to link the real assistant</div>
+</div>
+
+<script>
+  // ambient background particles
+  (function(){
+    const n = 22;
+    for(let i=0;i<n;i++){
+      const p = document.createElement('div');
+      p.className = 'bg-particle';
+      const size = 2 + Math.random()*2;
+      p.style.width = size+'px';
+      p.style.height = size+'px';
+      p.style.left = (Math.random()*100)+'vw';
+      p.style.top = (Math.random()*100)+'vh';
+      p.style.animationDelay = (Math.random()*9)+'s';
+      p.style.animationDuration = (7+Math.random()*6)+'s';
+      document.body.appendChild(p);
+    }
+  })();
+
+  // boot sequence
+  (function(){
+    const lines = [
+      'INITIALIZING MAYA CORE',
+      'LOADING VOICE MODULE <span>OK</span>',
+      'CALIBRATING AUDIO INPUT <span>OK</span>',
+      'LINKING SENSOR ARRAY <span>OK</span>',
+      'ALL SYSTEMS NOMINAL'
+    ];
+    const log = document.getElementById('boot-log');
+    let i = 0;
+    function next(){
+      if(i < lines.length){
+        const d = document.createElement('div');
+        d.innerHTML = '&gt; ' + lines[i];
+        log.appendChild(d);
+        i++;
+        setTimeout(next, 380);
+      } else {
+        setTimeout(()=>{
+          document.getElementById('boot').style.opacity = '0';
+          document.getElementById('app').classList.add('ready');
+          setTimeout(()=>{ document.getElementById('boot').style.display='none'; }, 650);
+        }, 400);
+      }
+    }
+    setTimeout(next, 300);
+  })();
+
+  // clock (always local — no need to round-trip this through the backend)
+  function updateClock(){
+    const now = new Date();
+    const time = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    const date = now.toLocaleDateString('en-IN', {weekday:'short', day:'2-digit', month:'short', year:'numeric'});
+    document.getElementById('clock-time').textContent = time;
+    document.getElementById('clock-date').textContent = date;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // waveform bars
+  (function(){
+    const wf = document.getElementById('waveform');
+    for(let i=0;i<26;i++){
+      const b = document.createElement('div');
+      b.className = 'bar';
+      b.style.animationDelay = (i*0.045)+'s';
+      wf.appendChild(b);
+    }
+  })();
+
+  // idle blink, alive even at rest
+  (function(){
+    const eyes = document.querySelectorAll('.eye');
+    function blink(){
+      eyes.forEach(e => e.classList.add('blink'));
+      setTimeout(()=> eyes.forEach(e => e.classList.remove('blink')), 320);
+      setTimeout(blink, 2600 + Math.random()*3200);
+    }
+    setTimeout(blink, 1800);
+  })();
+
+  const app = document.getElementById('app');
+  const sysText = document.getElementById('sys-text');
+  const stateText = document.getElementById('state-text');
+  const transcript = document.getElementById('transcript');
+  const controls = document.getElementById('controls');
+  const connBadge = document.getElementById('conn-badge');
+  const footnote = document.getElementById('footnote');
+  const weatherTemp = document.getElementById('weather-temp');
+  const weatherCond = document.getElementById('weather-cond');
+
+  const demoMessages = {
+    standby:  { sys:'SYSTEM STANDBY',      state:'Standby. Say "wake up" to resume.' },
+    wake:     { sys:'SYSTEM ONLINE',       state:'Online and glad to help.' },
+    listening:{ sys:'AUDIO INPUT ACTIVE',  state:'Listening…' },
+    speaking: { sys:'VOICE OUTPUT ACTIVE', state:'Here\u2019s what I\u2019ve got.' }
+  };
+
+  let backendConnected = false;
+  let lastQuery = "";
+
+  // ---- Demo/manual mode: only active when the backend isn't reachable ----
+  document.querySelectorAll('.controls button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (backendConnected) return; // real state wins once we're live
+      const s = btn.getAttribute('data-set');
+      app.setAttribute('data-state', s);
+      sysText.textContent = demoMessages[s].sys;
+      stateText.textContent = demoMessages[s].state;
+      document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  function fetchWeatherFallback(){
+    fetch('https://wttr.in/Kochi?format=j1')
+      .then(r => r.json())
+      .then(data => {
+        if (backendConnected) return; // backend weather takes priority
+        const cur = data.current_condition[0];
+        weatherTemp.textContent = cur.temp_C + '°C';
+        weatherCond.textContent = cur.weatherDesc[0].value;
+      })
+      .catch(() => {
+        if (backendConnected) return;
+        weatherTemp.textContent = '—';
+        weatherCond.textContent = 'Sensor offline';
+      });
+  }
+
+  function applyBackendState(data){
+    app.setAttribute('data-state', data.mode);
+    sysText.textContent = data.sys_text || '';
+    stateText.textContent = data.message || '';
+
+    if (data.weather_temp) weatherTemp.textContent = data.weather_temp;
+    if (data.weather_cond) weatherCond.textContent = data.weather_cond;
+
+    if (data.last_query && data.last_query !== lastQuery) {
+      lastQuery = data.last_query;
+    }
+    if (lastQuery && data.last_reply) {
+      transcript.innerHTML =
+        '<span class="you">You: ' + escapeHtml(lastQuery) + '</span>' +
+        '<span class="arrow">&rarr;</span>' +
+        '<span class="reply">' + escapeHtml(data.last_reply) + '</span>';
+    }
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  function setConnected(connected){
+    if (connected === backendConnected) return;
+    backendConnected = connected;
+    if (connected) {
+      connBadge.textContent = 'LIVE';
+      connBadge.className = 'conn-badge live';
+      controls.classList.add('hidden');
+      footnote.textContent = 'Linked to main.py — this face reflects the running assistant in real time';
+    } else {
+      connBadge.textContent = 'PREVIEW';
+      connBadge.className = 'conn-badge preview';
+      controls.classList.remove('hidden');
+      footnote.textContent = 'Preview mode — start python server.py to link the real assistant';
+    }
+  }
+
+  // When this page is embedded by streamlit_app.py, it injects
+  // window.MAYA_API_PORT so the fetch below can reach the local state API
+  // running on a different port than the Streamlit page itself. When
+  // served directly by server.py (same origin), this stays unset and the
+  // fetch falls back to the original relative path.
+  const API_BASE = window.MAYA_API_PORT ? `http://127.0.0.1:${window.MAYA_API_PORT}` : '';
+
+  async function pollState(){
+    try {
+      const res = await fetch(API_BASE + '/api/state', { cache: 'no-store' });
+      if (!res.ok) throw new Error('bad status');
+      const data = await res.json();
+      setConnected(true);
+      applyBackendState(data);
+    } catch (e) {
+      setConnected(false);
+    }
+    setTimeout(pollState, 450);
+  }
+
+  pollState();
+  fetchWeatherFallback();
+  setInterval(() => { if (!backendConnected) fetchWeatherFallback(); }, 10 * 60 * 1000);
+</script>
+
+</body>
+</html>

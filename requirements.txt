@@ -1,0 +1,10 @@
+flask
+SpeechRecognition
+pyjokes
+edge-tts
+pygame
+requests
+wikipedia
+PyAudio
+customtkinter
+streamlit
